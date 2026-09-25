@@ -1,0 +1,37 @@
+# ---- Gradle / build output ----
+build/
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# ---- Minecraft dev run directory (worlds, logs, configs) ----
+run/
+
+# ---- Local third-party mod dependencies ----
+libs/*.jar
+libs/*.zip
+
+# ---- Logs ----
+*.log
+*.log.gz
+logs/
+*_log.txt
+crash-reports/
+
+# ---- IDE ----
+.idea/
+*.iml
+*.ipc
+.vscode/
+*.code-workspace
+.settings/
+.classpath
+.project
+
+# ---- OS noise ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Local scratch ----
+research/
+*.tmp

@@ -1,0 +1,28 @@
+modLoader = "javafml"
+loaderVersion = "[2,)"
+license = "MIT"
+
+[[mods]]
+modId = "damage_display_of_george"
+version = "1.0.0"
+displayName = "Damage display of George"
+authors = "George"
+description = '''
+在聊天栏显示玩家受到的每一次伤害：伤害类型、来源生物、减免前的原始伤害、
+护甲/附魔/抗性提升/吸收等各项减免明细，以及最终实际扣掉的血量。
+纯客户端显示 + 服务端事件驱动，服务端装、客户端装、或两边都装都能正常显示。
+'''
+
+[[dependencies.damage_display_of_george]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.1.61,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.damage_display_of_george]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1,1.22)"
+ordering = "NONE"
+side = "BOTH"

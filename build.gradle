@@ -1,0 +1,84 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.138'
+}
+
+version = project.properties['mod_version'] ?: '1.0.0'
+group = project.properties['mod_group'] ?: 'dev.george.damagedisplay'
+
+base {
+    archivesName = 'damage-display-of-george'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+// 本 mod 不依赖任何第三方模组（libs/ 为空也无所谓）。
+// 保留这两行是为了跟同系列其它模组保持一致的骨架：
+// 需要时可把第三方 jar 丢进 libs/，用 compileOnly + runtimeOnly 引入。
+dependencies {
+    compileOnly fileTree(dir: 'libs', include: '*.jar')
+    runtimeOnly fileTree(dir: 'libs', include: '*.jar')
+}
+
+neoForge {
+    version = project.properties['neoforge_version'] ?: '21.1.234'
+
+    runs {
+        client { client() }
+        server { server() }
+        // 无头自检：起一个专用服务器，跑一遍伤害流程，把结果打到日志里然后退出。
+        // 用法： .\gradlew runSelfTest
+        // 端口故意避开默认 25565，免得和用户正在玩的客户端/服务器抢端口。
+        selfTest {
+            server()
+            systemProperty 'damagedisplay.selftest', 'true'
+            programArgument '--port'
+            programArgument '25599'
+            programArgument '--nogui'
+        }
+        // 带自检开关的客户端：进世界后会把伤害类型汉化逐个打到日志里。
+        // 用法： .\gradlew runClientCheck
+        // （单独的 run 配置，避免平时 runClient 也开着自检）
+        clientCheck {
+            client()
+            systemProperty 'damagedisplay.selftest', 'true'
+        }
+    }
+
+    mods {
+        damage_display_of_george {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+// 说明：自检类（ModSelfTest / MessageCapture / ClientSelfTest / ClientEnvironment）
+// **保留在正式包里**，不做排除。
+//
+// 原因是主逻辑直接引用了它们：
+//   - DamageDisplayHandler 调 MessageCapture.record(...) 和 ModSelfTest.isEnabled()
+//   - DamageDisplayHandler 调 ClientEnvironment（判客户端环境）
+// 排除掉会在运行时抛 NoClassDefFoundError。
+//
+// 它们平时几乎零开销（自检关掉时就是一次 static 字段判断），
+// 不会往日志里写东西，所以带上没问题。
+
+// 带客户端自检的完整包（开发/排查用，等价于普通 jar，单独给个名字方便辨认）。
+tasks.register('selfTestJar', Jar) {
+    dependsOn tasks.named('classes')
+    archiveClassifier = 'selftest'
+    from sourceSets.main.output
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
