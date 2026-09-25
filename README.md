@@ -7,7 +7,7 @@
 
 ---
 
-## 一、效果
+## 效果
 
 受伤时聊天栏输出一行，用方括号分段：
 
@@ -17,8 +17,6 @@
 [伤害] [类型 爆炸] [来源 苦力怕] [原始 24] [实际 9] [格挡 -15] [护甲 -3.2] [附魔 -1.4] [吸收 -2]
 ```
 
-各部分含义：
-
 | 分段 | 含义 |
 |---|---|
 | `[类型 摔落]` | **伤害类型**，鼠标悬浮可看到真实注册名 `minecraft:fall` |
@@ -27,7 +25,7 @@
 | `[实际 3.4]` | **最终实际掉的血量**（加粗；红/金/绿区分轻重） |
 | `[护甲 -2.6]` | 各项减免明细 |
 
-### 鼠标放在 `[实际 x]` 上看伤害改动全过程
+### 鼠标悬停看伤害改动全过程
 
 `[实际 x]` 带下划线，**鼠标悬停**会显示伤害类型分类和完整改动链：
 
@@ -44,7 +42,7 @@
   最初伤害 6   最终实际掉血 5.8
 ```
 
-如果是无视减免的伤害，还会标出来：
+无视减免的伤害会额外标出：
 
 ```
 伤害改动过程
@@ -53,8 +51,8 @@
   攻击者    凋灵 · 凋灵之首
 ```
 
-**改动链**把每一步的**净变化量**（`+4` / `-3.2`）标出来，涨了标红、降了标绿 ——
-这样就能一眼看出是"哪一步把伤害加上去的"。莱特兰、神化这类模组会在伤害流程中间
+**改动链**标出每一步的**净变化量**（`+4` / `-3.2`），涨了标红、降了标绿 ——
+一眼就能看出是"哪一步把伤害加上去的"。莱特兰、神化这类模组会在伤害流程中间
 放大敌人攻击力，只看头尾两个数字会让人困惑「怎么 6 变成 12 了」。
 
 | 采样点 | 对应阶段 |
@@ -64,7 +62,7 @@
 | `LivingDamageEvent.Pre` | 护甲 / 附魔 / 抗性提升减免 |
 | `LivingDamageEvent.Post` | 吸收扣除后的最终掉血 |
 
-### 伤害类型分类（物理 / 魔法 / 真实伤害……）
+### 伤害类型分类
 
 分类用**原版与 NeoForge 的标准伤害类型标签**判定，不依赖任何具体模组：
 
@@ -74,72 +72,27 @@
 | 魔法 | `neoforge:is_magic`、`WITCH_RESISTANT_TO` |
 | 火焰 / 摔落 / 爆炸 / 弹射物 / 闪电 / 冰冻 / 溺水 / 中毒 / 凋零 | `IS_FIRE` / `IS_FALL` / `IS_EXPLOSION` / … |
 
-这套标签正是成熟模组的通行做法 —— 神化的 `DamageReductionAffix.DamageType` 枚举
+这与成熟模组的通行做法一致 —— 神化的 `DamageReductionAffix.DamageType` 枚举
 （`PHYSICAL` / `MAGIC` / `FIRE` / `FALL` / `EXPLOSION` / `PROJECTILE` / `LIGHTNING`）
-就是逐个 `source.is(标签)` 判出来的。所以本模组的分类结果和它们一致。
+就是逐个 `source.is(标签)` 判出来的，所以本模组的分类结果和它们一致。
 
 **「真实伤害」**没有原版标签，这里按语义判定：**同时无视护甲与魔法抗性**即为真实伤害。
 原版用 `BYPASSES_ARMOR`、`BYPASSES_RESISTANCE` 等标签表达；莱特兰则把性质编进伤害类型名
 （`mob_attack-bypass_armor-bypass_magic`）。两种表达方式都识别。
 
-### 为什么这样做而不是直接调莱特兰的 API
-
-莱特兰用的是它自己的一套 `l2damagetracker` 框架（有 `DamageModifier` 分层记录）。
-直接调用那套 API 会让本模组**硬依赖莱特兰** —— 没装的整合包会直接崩溃。
-
-所以这里改成**通用采样 + 标准标签**：装了莱特兰/神化会自动多出它们的环节，
-**没装也照常工作**，且不会因为上游模组改版本而失效。
+> **为什么不用莱特兰的 API**：莱特兰用的是它自己的 `l2damagetracker` 框架，直接调用会让本模组
+> **硬依赖莱特兰** —— 没装的整合包会直接崩溃。这里改成**通用采样 + 标准标签**：装了莱特兰/神化
+> 会自动多出它们的环节，**没装也照常工作**，且不会因为上游模组改版本而失效。
 
 ### 按 `]` 一键开关
 
 游戏内按 **`]`**（右方括号）即可开关伤害显示，物品栏上方会提示「伤害显示：开 / 关」。
 
-- 按键可以在 **选项 → 控制 → 按键绑定 → `Damage display of George`** 里改成任意键。
+- 按键可在 **选项 → 控制 → 按键绑定 → `Damage display of George`** 里改成任意键。
 - 开关是**每个玩家独立**的：多人游戏里你关掉不影响别人。
 - 配置文件里的 `enabled = false` 优先级最高 —— 那是「彻底关闭」，按键也开不回来。
 
-## 二、它是怎么算出来的
-
-挂在三个 NeoForge 事件上，覆盖「减免前 → 格挡 → 结算后」的完整伤害流程：
-
-| 事件 | 作用 |
-|---|---|
-| `LivingIncomingDamageEvent` | 伤害流程最开头，**记下受伤前的血量快照** |
-| `LivingDamageEvent.Post` | 全部减免算完、血量已扣，在这里算出真实掉血并输出 |
-
-### ⚠️ 「实际伤害」为什么不能用 `getNewDamage()`
-
-这是一个容易踩的坑。`DamageContainer.getNewDamage()` **不等于真实掉血量**：
-
-1. 它把 `Reduction.ABSORPTION`（吸收/黄心）也减掉了，但吸收伤害扣的是**黄心而非血量** —— 有黄心时血量根本不该掉。
-2. 血量有上下限（`setHealth` 会 clamp 到 `0..maxHealth`），伤害超过剩余血量时 `newDamage` 会大于真实掉血。
-3. 别的模组可能在 `LivingDamageEvent.Pre` 里再改一次。
-
-后果就是**「实际伤害」显示得比「原始伤害」还高**，数字对不上。
-
-所以本模组的「实际伤害」取的是唯一可靠的来源 —— **受伤前后的血量差**：
-
-```java
-actual = max(0, healthBefore - healthAfter)
-```
-
-血量快照在 `LivingIncomingDamageEvent`（`EventPriority.HIGHEST`）里记，在
-`LivingDamageEvent.Post` 里取差。自检里内置了断言：**一旦出现「实际 > 原始」就报 FAIL**
-（`MessageCapture.countInversions()`）。
-
-### 关于「伤害类型」名
-
-原版**没有**「伤害类型通用名」的翻译键 —— 只有 `death.attack.*` 那一套**死亡消息**
-（`death.attack.generic` = "X died" / "X 死了"）。直接拿来当类型名会显示成
-"Zombie died" 这种读起来像结果的句子。
-
-所以本模组自带一份 **1.21.1 全部 48 种原版伤害类型**的中英对照（见 `DamageDescriber.java`
-的 `NAMES` 集合 + `lang/zh_cn.json`、`lang/en_us.json`），输出干净的「摔落」「火焰」「溺水」。
-
-其它模组注册的自定义伤害类型不在表里，会**回退显示伤害类型 id**（如 `mymod:my_damage`），
-不会崩，也不会显示成 `damage_type.xxx` 原文。
-
-## 三、配置
+## 配置
 
 配置文件：`config/damage_display_of_george-common.toml`（首次启动自动生成）。
 
@@ -153,10 +106,10 @@ actual = max(0, healthBefore - healthAfter)
 | `showZeroDamage` | `true` | 最终伤害为 0（完全格挡/免疫）时是否也显示 |
 | `ignoredTypes` | 空 | 伤害类型黑名单关键词，如填 `fall` 就不显示摔落伤害 |
 
-**配置 与 按键的分工**：配置管「长期设置」，按键管「临时静音」。配置文件关掉就是彻底关，
+**配置与按键的分工**：配置管「长期设置」，按键管「临时静音」。配置文件关掉就是彻底关，
 按键只在配置允许的前提下切换。
 
-## 四、三种装法都能用
+## 三种装法都能用
 
 | 场景 | 行为 |
 |---|---|
@@ -166,7 +119,7 @@ actual = max(0, healthBefore - healthAfter)
 
 网络通道用 `optional()` 注册，所以**两边装法不一致也不会报错或踢人**。
 
-## 四、构建与验证
+## 构建与验证
 
 ```powershell
 .\gradlew build        # 产出 build/libs/damage-display-of-george-1.0.0.jar
@@ -174,7 +127,7 @@ actual = max(0, healthBefore - healthAfter)
 .\gradlew runClient    # 开发环境客户端
 ```
 
-自检输出示例（`runSelfTest`）：
+自检输出示例：
 
 ```
 SELFTEST: 施加 fall(7.5) -> hurt()=true, 血量 15 -> 7.5
@@ -184,16 +137,37 @@ SELFTEST: RESULT: PASS
 
 > 自检用 25599 端口（避开默认 25565，免得和你正在玩的游戏抢端口）。
 
-### 装进整合包验证
+装进整合包验证：`.\tools\verify_pack.ps1` —— 把 jar 复制进整合包并检查日志里本模组相关的行。
 
-```powershell
-.\tools\verify_pack.ps1
+## 实现要点
+
+「实际伤害」**不能**用 `DamageContainer.getNewDamage()`：
+
+1. 它把 `Reduction.ABSORPTION`（吸收/黄心）也减掉了，但吸收伤害扣的是**黄心而非血量**。
+2. 血量有上下限（`setHealth` 会 clamp 到 `0..maxHealth`），伤害超过剩余血量时 `newDamage` 会偏大。
+3. 别的模组可能在 `LivingDamageEvent.Pre` 里再改一次。
+
+后果是**「实际伤害」显示得比「原始伤害」还高**。所以这里取唯一可靠的来源 —— **受伤前后的血量差**：
+
+```java
+actual = max(0, healthBefore - healthAfter)
 ```
 
-把 jar 复制进整合包并检查日志里本模组相关的行。
+血量快照在 `LivingIncomingDamageEvent`（`EventPriority.HIGHEST`）里记，在
+`LivingDamageEvent.Post` 里取差。自检内置断言：**一旦出现「实际 > 原始」就报 FAIL**。
 
-## 五、注意
+另外，原版**没有**「伤害类型通用名」的翻译键（只有 `death.attack.*` 那一套死亡消息，
+拿来当类型名会显示成 "Zombie died" 这种句子）。所以本模组自带一份 **1.21.1 全部 48 种
+原版伤害类型**的中英对照（见 `DamageDescriber.java` + `lang/` 目录），输出干净的
+「摔落」「火焰」「溺水」。其它模组注册的自定义伤害类型不在表里，会**回退显示伤害类型 id**
+（如 `mymod:my_damage`），不会崩，也不会显示成 `damage_type.xxx` 原文。
+
+## 注意
 
 - 改完代码要**重启游戏**才生效；游戏运行中往 `mods/` 放 jar 不会被加载。
 - 本模组不含 `data/` 目录，因此不受「JDK 25 zipfs 导致 data 全部失效」那个坑影响
   （该问题只影响从 jar 读取 `data/` 下的文件）。
+
+## 许可证
+
+[MIT](LICENSE)
